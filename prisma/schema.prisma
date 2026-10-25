@@ -1,0 +1,273 @@
+// Сосед.Про — схема данных. Боевая база: управляемый PostgreSQL в РФ (Timeweb Cloud).
+// Для локальной разработки на SQLite файл prisma/schema.local.prisma создаётся автоматически
+// из этого файла командой `npm run schema:local` (подменяется только provider).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Complex {
+  id      String @id
+  name    String
+  address String
+}
+
+model Master {
+  id             String   @id
+  name           String
+  title          String
+  specialty      String
+  category       String // repair | cleaning | junior
+  skills         String // через запятую: coffee,washer,...
+  avatar         String
+  rating         Float
+  reviews        Int
+  distanceM      Int
+  etaMin         Int
+  mapX           Float
+  mapY           Float
+  uniform        String
+  badge          String
+  status         String   @default("free") // free | busy | alert
+  blocked        Boolean  @default(false)
+  deposit        Int      @default(10000)
+  balance        Int      @default(0)
+  npdStatus      String   @default("Самозанятый (НПД) • подтверждён")
+  inn            String
+  commissionRate Float    @default(0.15)
+  academyPoints  Int      @default(0)
+  lessonsDone    String   @default("")
+  telegramChatId String?
+  createdAt      DateTime @default(now())
+  orders         Order[]
+  fines          Fine[]
+}
+
+model Order {
+  id               String    @id @default(cuid())
+  number           Int
+  kind             String // repair | cleaning | junior
+  category         String
+  categoryLabel    String
+  brand            String?
+  errorCode        String?
+  diagnosis        String
+  bagHint          String?
+  details          String    @default("")
+  address          String
+  clientName       String
+  clientPhone      String    @default("+7 (9••) •••-12-34")
+  priceWorkFrom    Int
+  priceWorkTo      Int
+  priceTurnkeyTo   Int
+  visitFee         Int       @default(500)
+  finalWork        Int?
+  finalParts       Int?
+  estimateNote     String?
+  donation         Int       @default(0)
+  status           String    @default("searching")
+  masterId         String?
+  master           Master?   @relation(fields: [masterId], references: [id])
+  declinedBy       String    @default("")
+  checklistUniform Boolean   @default(false)
+  photoBefore      String?
+  photoAfter       String?
+  warrantyCode     String?
+  consentAt        DateTime?
+  payMethod        String? // card | sbp | escrow
+  payStatus        String    @default("none") // none | pending | held | paid | refunded
+  payExternalId    String?
+  payMode          String? // mock | yookassa | tbank
+  rating           Int?
+  surveySent       Boolean   @default(false)
+  assignedAt       DateTime?
+  acceptedAt       DateTime?
+  arrivedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  payment          Payment?
+}
+
+model Payment {
+  id           String   @id @default(cuid())
+  orderId      String   @unique
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  clientPaid   Int
+  work         Int
+  parts        Int
+  masterPayout Int
+  platformFee  Int
+  serviceFee   Int
+  acquiring    Int
+  reserve      Int
+  donation     Int
+  receiptNo    String
+  method       String   @default("card")
+  receiptJson  String   @default("")
+  payoutStatus String   @default("sent") // pending | sent
+  createdAt    DateTime @default(now())
+}
+
+model ErrorCode {
+  id              String @id @default(cuid())
+  category        String
+  brand           String
+  code            String
+  title           String
+  keywords        String @default("")
+  causes          String // JSON: [{text, freq: often|sometimes|rare}]
+  selfCheck       String // JSON: string[]
+  priceWorkFrom   Int
+  priceWorkTo     Int
+  priceTurnkeyTo  Int
+  durationMin     Int
+  bagHint         String
+  // Реальные данные мастера (rafael) или составленные автоматически (generated)
+  source          String @default("generated")
+  verified        Boolean @default(false)
+  partsFrom       Int    @default(0)
+  partsTo         Int    @default(0)
+  meaning         String @default("")
+  masterSteps     String @default("[]")
+  whenMaster      String @default("[]")
+  faq             String @default("[]")
+}
+
+model Region {
+  id         String @id
+  name       String
+  tier       String // moscow | tier1 | tier2 | tier3
+  multiplier Float  @default(1)
+  lat        Float
+  lon        Float
+  sort       Int    @default(0)
+}
+
+model PriceItem {
+  id          String @id
+  groupKey    String // plumbing | electric | junior | clean-type | clean-window | clean-extra | clean-commercial
+  label       String
+  basePrice   Int
+  unit        String @default("") // "" — за услугу, "м²", "шт", "час"
+  durationMin Int    @default(0)
+  bagHint     String @default("")
+  symptoms    String @default("")
+  meta        String @default("")
+  sort        Int    @default(0)
+}
+
+model Book {
+  id        String   @id @default(cuid())
+  title     String
+  author    String
+  kind      String // selfdev | kids
+  ownerName String
+  ownerApt  String
+  status    String   @default("available") // available | taken
+  takenBy   String?
+  cover     String
+  createdAt DateTime @default(now())
+}
+
+model Lesson {
+  id          String @id
+  title       String
+  author      String
+  topic       String
+  durationMin Int
+  points      Int
+  discount    Float
+  summary     String
+}
+
+model Donation {
+  id        String   @id @default(cuid())
+  amount    Int
+  source    String
+  createdAt DateTime @default(now())
+}
+
+model GoodDeed {
+  id          String   @id @default(cuid())
+  title       String
+  beneficiary String
+  cost        Int
+  status      String // done | in_progress | planned
+  masterName  String?
+  createdAt   DateTime @default(now())
+}
+
+model Fine {
+  id        String   @id @default(cuid())
+  masterId  String
+  master    Master   @relation(fields: [masterId], references: [id])
+  amount    Int
+  reason    String
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  channel   String // telegram | system
+  target    String
+  text      String
+  delivered Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Application {
+  id         String   @id @default(cuid())
+  name       String
+  phone      String
+  role       String // repair | cleaning | junior
+  district   String
+  experience String   @default("")
+  about      String   @default("")
+  status     String   @default("new") // new | approved | rejected
+  consentAt  DateTime?
+  createdAt  DateTime @default(now())
+}
+
+model User {
+  id            String    @id @default(cuid())
+  phone         String?   @unique
+  name          String?
+  role          String    @default("client") // client | master | admin
+  provider      String    @default("phone") // phone | yandex | vk | esia
+  providerId    String?
+  esiaVerified  Boolean   @default(false)
+  consentAt     DateTime?
+  createdAt     DateTime  @default(now())
+  lastLoginAt   DateTime?
+}
+
+model AuthCode {
+  id        String   @id @default(cuid())
+  phone     String
+  codeHash  String
+  channel   String   @default("sms") // sms | call
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model ChatThread {
+  id        String    @id @default(cuid())
+  contact   String    @default("")
+  status    String    @default("new") // new | taken | closed
+  messages  String    @default("[]") // JSON: [{from: "user"|"bot"|"agent", text, at}]
+  consentAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model SyncState {
+  id      Int @id @default(1)
+  version Int @default(0)
+}
